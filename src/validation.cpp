@@ -4163,7 +4163,7 @@ bool CheckConsecutivePoW(const CBlock& block, const CBlockIndex* pindexPrev) {
  *  in ConnectBlock().
  *  Note that -reindex-chainstate skips the validation that happens here!
  */
-static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
+static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev, bool isNewBlock = false)
 {
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
 
@@ -4182,8 +4182,10 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
         return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, strprintf("incorrect proof of work: block bits=%d calc=%d",
                 block.nBits, GetNextWorkRequired(pindexPrev, &block, consensusParams, block.IsProofOfStake())));
 
-    if (pindexPrev->nHeight >= Params().ConsecutivePoWHeight() && !CheckConsecutivePoW(block, pindexPrev)) {
-        return state.DoS(100, false, REJECT_INVALID, "bad-pow", false, strprintf("too many consecutive pow blocks"));
+    if (!isNewBlock) {
+		if (pindexPrev->nHeight >= Params().ConsecutivePoWHeight() && !CheckConsecutivePoW(block, pindexPrev)) {
+			return state.DoS(100, false, REJECT_INVALID, "bad-pow", false, strprintf("too many consecutive pow blocks"));
+		}
     }
 
     // Start enforcing BIP113 (Median Time Past) using versionbits logic.
@@ -4614,7 +4616,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
     if (!CheckBlock(block, state, chainparams.GetConsensus(), fCheckPOW, fCheckMerkleRoot))
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
+    if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev, true))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
     if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, chainparams, true))
         return false;
